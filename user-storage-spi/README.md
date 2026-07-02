@@ -12,9 +12,9 @@ nexacore-authmodule-user-storage
 
 The provider reads:
 
-- `users`
-- `roles`
-- `user_roles`
+- `auth_users`
+- `auth_roles`
+- `auth_user_roles`
 
 It exposes these values to Keycloak:
 
@@ -25,7 +25,7 @@ It exposes these values to Keycloak:
 - `nexacore_user_id` user attribute
 - `nexacore_roles` user attribute
 
-It validates local passwords against the BCrypt hash stored in `users.password`.
+It validates local passwords against the BCrypt hash stored in `auth_users.password`.
 
 ## Build
 

@@ -18,7 +18,7 @@ public class NexaCoreUserRepository {
                    COALESCE(u.email_verified, false) AS email_verified,
                    u.enabled,
                    u.password
-              FROM users u
+              FROM auth_users u
             """;
 
     private final String jdbcUrl;
@@ -68,14 +68,14 @@ public class NexaCoreUserRepository {
     }
 
     public int count() {
-        return count("SELECT COUNT(*) FROM users", statement -> {
+        return count("SELECT COUNT(*) FROM auth_users", statement -> {
         });
     }
 
     public int countSearch(String search) {
         String sql = """
                 SELECT COUNT(*)
-                  FROM users u
+                  FROM auth_users u
                  WHERE LOWER(u.username) LIKE LOWER(?)
                     OR LOWER(u.email) LIKE LOWER(?)
                 """;
@@ -135,8 +135,8 @@ public class NexaCoreUserRepository {
     private List<String> findRoles(Connection connection, long userId) throws SQLException {
         String sql = """
                 SELECT r.name
-                  FROM roles r
-                  JOIN user_roles ur ON ur.role_id = r.id
+                  FROM auth_roles r
+                  JOIN auth_user_roles ur ON ur.role_id = r.id
                  WHERE ur.user_id = ?
                  ORDER BY r.name
                 """;
