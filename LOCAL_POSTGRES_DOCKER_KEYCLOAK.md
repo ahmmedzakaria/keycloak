@@ -143,6 +143,51 @@ KYC DB username: postgres
 KYC DB password: 123456
 ```
 
+## Client Redirect And Logout Settings
+
+If Keycloak logs this error during logout:
+
+```text
+LOGOUT_ERROR ... error="invalid_redirect_uri" ... redirect_uri="http://localhost:4200/login"
+```
+
+then the frontend logout URL is not allowed in the Keycloak client settings.
+
+For `nexacore-client`, configure:
+
+```text
+Valid redirect URIs:
+http://localhost:4200/*
+
+Valid post logout redirect URIs:
+http://localhost:4200/*
+
+Web origins:
+http://localhost:4200
+```
+
+If the privilege frontend also uses SSO, include port `4300` too:
+
+```text
+Valid redirect URIs:
+http://localhost:4200/*
+http://localhost:4300/*
+
+Valid post logout redirect URIs:
+http://localhost:4200/*
+http://localhost:4300/*
+
+Web origins:
+http://localhost:4200
+http://localhost:4300
+```
+
+The exact URL from the error can also be allowed directly:
+
+```text
+http://localhost:4200/login
+```
+
 ## If PostgreSQL Uses Port 5432
 
 If local PostgreSQL runs on the default port `5432`, start Keycloak with:
