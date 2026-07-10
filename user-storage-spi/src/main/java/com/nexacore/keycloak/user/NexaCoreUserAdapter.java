@@ -102,6 +102,8 @@ public class NexaCoreUserAdapter extends AbstractUserAdapterFederatedStorage {
         if (user.personId() != null) {
             attributes.put("nexacore_person_id", List.of(String.valueOf(user.personId())));
         }
+        putIfPresent(attributes, "nexacore_mobile_number", user.mobileNumber());
+        attributes.put("nexacore_mobile_verified", List.of(String.valueOf(user.mobileVerified())));
         attributes.put("nexacore_roles", user.roles());
         return attributes;
     }
@@ -126,6 +128,12 @@ public class NexaCoreUserAdapter extends AbstractUserAdapterFederatedStorage {
         if ("nexacore_person_id".equals(name) && user.personId() != null) {
             return String.valueOf(user.personId());
         }
+        if ("nexacore_mobile_number".equals(name)) {
+            return user.mobileNumber();
+        }
+        if ("nexacore_mobile_verified".equals(name)) {
+            return String.valueOf(user.mobileVerified());
+        }
         return super.getFirstAttribute(name);
     }
 
@@ -148,6 +156,12 @@ public class NexaCoreUserAdapter extends AbstractUserAdapterFederatedStorage {
         }
         if ("nexacore_person_id".equals(name) && user.personId() != null) {
             return Stream.of(String.valueOf(user.personId()));
+        }
+        if ("nexacore_mobile_number".equals(name)) {
+            return streamIfPresent(user.mobileNumber());
+        }
+        if ("nexacore_mobile_verified".equals(name)) {
+            return Stream.of(String.valueOf(user.mobileVerified()));
         }
         if ("nexacore_roles".equals(name)) {
             return user.roles().stream();

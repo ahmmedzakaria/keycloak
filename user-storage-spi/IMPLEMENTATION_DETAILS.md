@@ -108,8 +108,6 @@ The current SQL expects these columns:
 auth_users.id
 auth_users.person_id
 auth_users.username
-auth_users.email
-auth_users.email_verified
 auth_users.enabled
 auth_users.password
 
@@ -121,15 +119,12 @@ auth_user_roles.role_id
 
 kyc_person.id
 kyc_person.email
+kyc_person.mobile_number
 kyc_person.first_name
 kyc_person.last_name
 kyc_person.email_verified
-```
-
-The user query projects `email_verified` with a false fallback:
-
-```sql
-COALESCE(u.email_verified, false) AS email_verified
+kyc_person.mobile_verified
+kyc_person.is_user
 ```
 
 Password validation expects `auth_users.password` to contain a BCrypt hash compatible with Spring Security's `BCryptPasswordEncoder`.
@@ -159,10 +154,10 @@ Mapped Keycloak fields:
 | --- | --- |
 | user id | Keycloak federated storage id whose external id is `nexacore:` + `auth_users.id` |
 | username | `auth_users.username` |
-| email | `kyc_person.email`, falling back to `auth_users.email` |
+| email | `kyc_person.email` |
 | first name | `kyc_person.first_name` |
 | last name | `kyc_person.last_name` |
-| email verified | `kyc_person.email_verified`, falling back to `auth_users.email_verified` |
+| email verified | `kyc_person.email_verified` |
 | enabled | `auth_users.enabled` |
 
 Mapped Keycloak attributes:
@@ -171,11 +166,13 @@ Mapped Keycloak attributes:
 | --- | --- |
 | `nexacore_user_id` | NexaCore user id as string |
 | `nexacore_person_id` | NexaCore person id as string when `auth_users.person_id` is set |
+| `nexacore_mobile_number` | mobile number from `kyc_person.mobile_number` |
+| `nexacore_mobile_verified` | mobile verification flag from `kyc_person.mobile_verified` |
 | `nexacore_roles` | role names from `auth_roles.name` |
 
 The adapter rejects username and enabled-status writes because those values are owned by NexaCore. It allows Keycloak profile writes for email and email verification through Keycloak federated storage so required actions such as **Update Account Information** can complete without trying to update the NexaCore auth database directly.
 
-`auth_users` intentionally has no first-name or last-name columns. Those fields are owned by `kyc_db.kyc_person`. If Keycloak allows a temporary profile edit, the adapter can persist it in Keycloak federated storage, but NexaCore remains the authoritative source through the KYC business flow.
+`auth_users` intentionally has no email, email verification, mobile number, mobile verification, first-name, or last-name columns. Those fields are owned by `kyc_db.kyc_person`. If Keycloak allows a temporary profile edit, the adapter can persist it in Keycloak federated storage, but NexaCore remains the authoritative source through the KYC business flow.
 
 The adapter exposes `email`, `firstName`, `lastName`, and `emailVerified` through both the `UserModel` getters and the Keycloak attribute API. This is required because Keycloak profile validation and protocol mappers may read standard profile fields through attributes instead of only through direct getters.
 
@@ -194,7 +191,7 @@ Supported lookups:
 | --- | --- |
 | `getUserById` | Parses Keycloak storage id or `nexacore:` id and queries `auth_users.id` |
 | `getUserByUsername` | Case-insensitive lookup against `auth_users.username` |
-| `getUserByEmail` | Case-insensitive lookup against `auth_users.email` |
+| `getUserByEmail` | Case-insensitive lookup against `kyc_person.email`, then lookup `auth_users.person_id` |
 | `searchForUserStream` | Case-insensitive `LIKE` search on username or email |
 | `searchForUserByUserAttributeStream` | Supports `nexacore_user_id` only |
 | `getUsersCount` | Counts all users or filtered username/email matches |
@@ -322,7 +319,7 @@ The current SPI exposes `nexacore_person_id` and `nexacore_user_id` as user attr
 
 - Keep the Keycloak internal database separate from the NexaCore application databases.
 - Do not point Keycloak's own `KC_DB_URL` at `auth_db`; only this SPI should read `auth_db`.
-- Use a database user with the narrowest practical permissions for the SPI. Read-only access to `auth_users`, `auth_roles`, and `auth_user_roles` is sufficient for the current implementation.
+- Use database users with the narrowest practical permissions for the SPI. Read-only access to `auth_users`, `auth_roles`, `auth_user_roles`, and `kyc_person` is sufficient for the current implementation.
 - Avoid logging raw passwords, access tokens, refresh tokens, authorization headers, or full user payloads when debugging Keycloak.
 - Rebuild and restart Keycloak after changing the provider jar.
 

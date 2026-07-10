@@ -7,9 +7,11 @@ public record NexaCoreUserRecord(
         Long personId,
         String username,
         String email,
+        String mobileNumber,
         String firstName,
         String lastName,
         boolean emailVerified,
+        boolean mobileVerified,
         boolean enabled,
         String passwordHash,
         List<String> roles

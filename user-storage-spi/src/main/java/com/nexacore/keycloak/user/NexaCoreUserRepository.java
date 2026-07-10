@@ -15,8 +15,6 @@ public class NexaCoreUserRepository {
             SELECT u.id,
                    u.person_id,
                    u.username,
-                   u.email,
-                   COALESCE(u.email_verified, false) AS email_verified,
                    u.enabled,
                    u.password
               FROM auth_users u
@@ -52,7 +50,11 @@ public class NexaCoreUserRepository {
     }
 
     public Optional<NexaCoreUserRecord> findByEmail(String email) {
-        return findOne(USER_SELECT + " WHERE LOWER(u.email) = LOWER(?)", statement -> statement.setString(1, email));
+        return findPersonProfileByEmail(email)
+                .flatMap(person -> findOne(
+                        USER_SELECT + " WHERE u.person_id = ?",
+                        statement -> statement.setLong(1, person.personId())
+                ));
     }
 
     public List<NexaCoreUserRecord> findAll(Integer firstResult, Integer maxResults) {
@@ -66,16 +68,14 @@ public class NexaCoreUserRepository {
     public List<NexaCoreUserRecord> search(String search, Integer firstResult, Integer maxResults) {
         String sql = USER_SELECT + """
                  WHERE LOWER(u.username) LIKE LOWER(?)
-                    OR LOWER(u.email) LIKE LOWER(?)
                  ORDER BY u.username
                  OFFSET ? LIMIT ?
                 """;
         String term = "%" + (search == null ? "" : search.trim()) + "%";
         return findMany(sql, statement -> {
             statement.setString(1, term);
-            statement.setString(2, term);
-            statement.setInt(3, firstResult == null ? 0 : firstResult);
-            statement.setInt(4, maxResults == null ? 100 : maxResults);
+            statement.setInt(2, firstResult == null ? 0 : firstResult);
+            statement.setInt(3, maxResults == null ? 100 : maxResults);
         });
     }
 
@@ -89,12 +89,10 @@ public class NexaCoreUserRepository {
                 SELECT COUNT(*)
                   FROM auth_users u
                  WHERE LOWER(u.username) LIKE LOWER(?)
-                    OR LOWER(u.email) LIKE LOWER(?)
                 """;
         String term = "%" + (search == null ? "" : search.trim()) + "%";
         return count(sql, statement -> {
             statement.setString(1, term);
-            statement.setString(2, term);
         });
     }
 
@@ -139,10 +137,12 @@ public class NexaCoreUserRepository {
                 userId,
                 personId,
                 resultSet.getString("username"),
-                firstNonBlank(personProfile.email(), resultSet.getString("email")),
+                personProfile.email(),
+                personProfile.mobileNumber(),
                 personProfile.firstName(),
                 personProfile.lastName(),
-                personProfile.emailVerified() == null ? resultSet.getBoolean("email_verified") : personProfile.emailVerified(),
+                Boolean.TRUE.equals(personProfile.emailVerified()),
+                Boolean.TRUE.equals(personProfile.mobileVerified()),
                 resultSet.getBoolean("enabled"),
                 resultSet.getString("password"),
                 findRoles(connection, userId)
@@ -179,10 +179,13 @@ public class NexaCoreUserRepository {
         }
 
         String sql = """
-                SELECT p.email,
+                SELECT p.id,
+                       p.email,
+                       p.mobile_number,
                        p.first_name,
                        p.last_name,
-                       p.email_verified
+                       p.email_verified,
+                       p.mobile_verified
                   FROM kyc_person p
                  WHERE p.id = ?
                 """;
@@ -193,16 +196,53 @@ public class NexaCoreUserRepository {
                 if (!resultSet.next()) {
                     return Optional.empty();
                 }
-                return Optional.of(new PersonProfile(
-                        resultSet.getString("email"),
-                        resultSet.getString("first_name"),
-                        resultSet.getString("last_name"),
-                        resultSet.getBoolean("email_verified")
-                ));
+                return Optional.of(mapPersonProfile(resultSet));
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to query NexaCore person profile", e);
         }
+    }
+
+    private Optional<PersonProfile> findPersonProfileByEmail(String email) {
+        if (isBlank(email) || isBlank(kycJdbcUrl)) {
+            return Optional.empty();
+        }
+
+        String sql = """
+                SELECT p.id,
+                       p.email,
+                       p.mobile_number,
+                       p.first_name,
+                       p.last_name,
+                       p.email_verified,
+                       p.mobile_verified
+                  FROM kyc_person p
+                 WHERE LOWER(p.email) = LOWER(?)
+                """;
+        try (Connection connection = DriverManager.getConnection(kycJdbcUrl, kycUsername, kycPassword);
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, email);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(mapPersonProfile(resultSet));
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to query NexaCore person profile by email", e);
+        }
+    }
+
+    private PersonProfile mapPersonProfile(ResultSet resultSet) throws SQLException {
+        return new PersonProfile(
+                resultSet.getLong("id"),
+                resultSet.getString("email"),
+                resultSet.getString("mobile_number"),
+                resultSet.getString("first_name"),
+                resultSet.getString("last_name"),
+                resultSet.getBoolean("email_verified"),
+                resultSet.getBoolean("mobile_verified")
+        );
     }
 
     private Long nullableLong(ResultSet resultSet, String columnName) throws SQLException {
@@ -210,22 +250,19 @@ public class NexaCoreUserRepository {
         return resultSet.wasNull() ? null : value;
     }
 
-    private String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (!isBlank(value)) {
-                return value;
-            }
-        }
-        return null;
-    }
-
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
 
-    private record PersonProfile(String email, String firstName, String lastName, Boolean emailVerified) {
+    private record PersonProfile(Long personId,
+                                 String email,
+                                 String mobileNumber,
+                                 String firstName,
+                                 String lastName,
+                                 Boolean emailVerified,
+                                 Boolean mobileVerified) {
         private static PersonProfile empty() {
-            return new PersonProfile(null, null, null, null);
+            return new PersonProfile(null, null, null, null, null, null, null);
         }
     }
 

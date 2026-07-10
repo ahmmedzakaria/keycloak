@@ -24,9 +24,13 @@ It exposes these values to Keycloak:
 - `first_name`
 - `last_name`
 - `email_verified`
+- `mobile_number`
+- `mobile_verified`
 - `enabled`
 - `nexacore_user_id` user attribute
 - `nexacore_person_id` user attribute
+- `nexacore_mobile_number` user attribute
+- `nexacore_mobile_verified` user attribute
 - `nexacore_roles` user attribute
 
 It validates local passwords against the BCrypt hash stored in `auth_users.password`.
@@ -76,4 +80,4 @@ KYC DB password: 123456
 ```
 
 After saving, Keycloak can authenticate users from NexaCore `auth_db` using their existing local username/password.
-The provider loads first name, last name, and profile email from `kyc_db.kyc_person` through `auth_users.person_id`.
+The provider loads email, email verification, mobile information, first name, and last name from `kyc_db.kyc_person` through `auth_users.person_id`. `auth_users` remains responsible only for account credentials, enabled status, roles, and the person reference.
