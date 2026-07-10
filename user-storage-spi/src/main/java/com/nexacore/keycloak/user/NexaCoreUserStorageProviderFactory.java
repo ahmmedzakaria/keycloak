@@ -15,6 +15,9 @@ public class NexaCoreUserStorageProviderFactory implements UserStorageProviderFa
     private static final String CONFIG_JDBC_URL = "jdbcUrl";
     private static final String CONFIG_DB_USERNAME = "dbUsername";
     private static final String CONFIG_DB_PASSWORD = "dbPassword";
+    private static final String CONFIG_KYC_JDBC_URL = "kycJdbcUrl";
+    private static final String CONFIG_KYC_DB_USERNAME = "kycDbUsername";
+    private static final String CONFIG_KYC_DB_PASSWORD = "kycDbPassword";
 
     private static final List<ProviderConfigProperty> CONFIG_PROPERTIES = List.of(
             configProperty(
@@ -37,6 +40,27 @@ public class NexaCoreUserStorageProviderFactory implements UserStorageProviderFa
                     "Database password for NexaCore auth_db",
                     ProviderConfigProperty.PASSWORD,
                     null
+            ),
+            configProperty(
+                    CONFIG_KYC_JDBC_URL,
+                    "KYC JDBC URL",
+                    "JDBC URL for NexaCore kyc_db, for example jdbc:postgresql://host.docker.internal:5433/kyc_db",
+                    ProviderConfigProperty.STRING_TYPE,
+                    "jdbc:postgresql://host.docker.internal:5433/kyc_db"
+            ),
+            configProperty(
+                    CONFIG_KYC_DB_USERNAME,
+                    "KYC DB username",
+                    "Database username for NexaCore kyc_db",
+                    ProviderConfigProperty.STRING_TYPE,
+                    "postgres"
+            ),
+            configProperty(
+                    CONFIG_KYC_DB_PASSWORD,
+                    "KYC DB password",
+                    "Database password for NexaCore kyc_db",
+                    ProviderConfigProperty.PASSWORD,
+                    null
             )
     );
 
@@ -45,8 +69,18 @@ public class NexaCoreUserStorageProviderFactory implements UserStorageProviderFa
         String jdbcUrl = model.get(CONFIG_JDBC_URL);
         String dbUsername = model.get(CONFIG_DB_USERNAME);
         String dbPassword = model.get(CONFIG_DB_PASSWORD);
+        String kycJdbcUrl = model.get(CONFIG_KYC_JDBC_URL);
+        String kycDbUsername = model.get(CONFIG_KYC_DB_USERNAME);
+        String kycDbPassword = model.get(CONFIG_KYC_DB_PASSWORD);
 
-        NexaCoreUserRepository userRepository = new NexaCoreUserRepository(jdbcUrl, dbUsername, dbPassword);
+        NexaCoreUserRepository userRepository = new NexaCoreUserRepository(
+                jdbcUrl,
+                dbUsername,
+                dbPassword,
+                kycJdbcUrl,
+                kycDbUsername,
+                kycDbPassword
+        );
         return new NexaCoreUserStorageProvider(session, model, userRepository);
     }
 

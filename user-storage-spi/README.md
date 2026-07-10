@@ -15,14 +15,18 @@ The provider reads:
 - `auth_users`
 - `auth_roles`
 - `auth_user_roles`
+- `kyc_person`
 
 It exposes these values to Keycloak:
 
 - `username`
 - `email`
+- `first_name`
+- `last_name`
 - `email_verified`
 - `enabled`
 - `nexacore_user_id` user attribute
+- `nexacore_person_id` user attribute
 - `nexacore_roles` user attribute
 
 It validates local passwords against the BCrypt hash stored in `auth_users.password`.
@@ -66,6 +70,10 @@ The run script automatically mounts the provider jar into:
 JDBC URL: jdbc:postgresql://host.docker.internal:5433/auth_db
 DB username: postgres
 DB password: 123456
+KYC JDBC URL: jdbc:postgresql://host.docker.internal:5433/kyc_db
+KYC DB username: postgres
+KYC DB password: 123456
 ```
 
 After saving, Keycloak can authenticate users from NexaCore `auth_db` using their existing local username/password.
+The provider loads first name, last name, and profile email from `kyc_db.kyc_person` through `auth_users.person_id`.

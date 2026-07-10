@@ -62,6 +62,9 @@ Use:
 JDBC URL: jdbc:postgresql://host.docker.internal:5433/auth_db
 DB username: postgres
 DB password: 123456
+KYC JDBC URL: jdbc:postgresql://host.docker.internal:5433/kyc_db
+KYC DB username: postgres
+KYC DB password: 123456
 ```
 
 The SPI reads:
@@ -70,9 +73,10 @@ The SPI reads:
 auth_users
 auth_roles
 auth_user_roles
+kyc_person
 ```
 
-Do not point Keycloak's own internal database setting at `auth_db`. Keycloak should use the separate `keycloak` database, while the SPI provider reads `auth_db`.
+Do not point Keycloak's own internal database setting at `auth_db` or `kyc_db`. Keycloak should use the separate `keycloak` database, while the SPI provider reads `auth_db` for authentication and `kyc_db` for person profile fields.
 
 ## PostgreSQL Requirements
 
@@ -134,6 +138,9 @@ Provider: nexacore-authmodule-user-storage
 JDBC URL: jdbc:postgresql://host.docker.internal:5433/auth_db
 DB username: postgres
 DB password: 123456
+KYC JDBC URL: jdbc:postgresql://host.docker.internal:5433/kyc_db
+KYC DB username: postgres
+KYC DB password: 123456
 ```
 
 ## If PostgreSQL Uses Port 5432
@@ -148,6 +155,7 @@ Then configure the SPI JDBC URL as:
 
 ```text
 jdbc:postgresql://host.docker.internal:5432/auth_db
+jdbc:postgresql://host.docker.internal:5432/kyc_db
 ```
 
 ## Useful Troubleshooting
@@ -170,5 +178,7 @@ If Keycloak starts but the federation provider cannot query users, the issue is 
 - PostgreSQL is not listening on the configured port.
 - `pg_hba.conf` does not allow Docker bridge connections.
 - The SPI JDBC URL points to the wrong database.
+- The KYC JDBC URL points to the wrong database.
 - The `auth_users`, `auth_roles`, or `auth_user_roles` tables are missing.
+- `auth_users.person_id` is not set for a user that should load first name and last name from `kyc_person`.
 - The database password in Keycloak User Federation settings is incorrect.

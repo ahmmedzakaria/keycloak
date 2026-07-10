@@ -2,5 +2,6 @@ com/nexacore/keycloak/user/NexaCoreUserRecord.class
 com/nexacore/keycloak/user/NexaCoreUserRepository$StatementBinder.class
 com/nexacore/keycloak/user/NexaCoreUserStorageProviderFactory.class
 com/nexacore/keycloak/user/NexaCoreUserStorageProvider.class
+com/nexacore/keycloak/user/NexaCoreUserRepository$PersonProfile.class
 com/nexacore/keycloak/user/NexaCoreUserAdapter.class
 com/nexacore/keycloak/user/NexaCoreUserRepository.class

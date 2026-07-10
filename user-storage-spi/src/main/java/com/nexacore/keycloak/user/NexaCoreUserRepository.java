@@ -13,6 +13,7 @@ public class NexaCoreUserRepository {
 
     private static final String USER_SELECT = """
             SELECT u.id,
+                   u.person_id,
                    u.username,
                    u.email,
                    COALESCE(u.email_verified, false) AS email_verified,
@@ -24,11 +25,22 @@ public class NexaCoreUserRepository {
     private final String jdbcUrl;
     private final String username;
     private final String password;
+    private final String kycJdbcUrl;
+    private final String kycUsername;
+    private final String kycPassword;
 
-    public NexaCoreUserRepository(String jdbcUrl, String username, String password) {
+    public NexaCoreUserRepository(String jdbcUrl,
+                                  String username,
+                                  String password,
+                                  String kycJdbcUrl,
+                                  String kycUsername,
+                                  String kycPassword) {
         this.jdbcUrl = jdbcUrl;
         this.username = username;
         this.password = password;
+        this.kycJdbcUrl = kycJdbcUrl;
+        this.kycUsername = kycUsername;
+        this.kycPassword = kycPassword;
     }
 
     public Optional<NexaCoreUserRecord> findById(long id) {
@@ -121,11 +133,16 @@ public class NexaCoreUserRepository {
 
     private NexaCoreUserRecord mapUser(Connection connection, ResultSet resultSet) throws SQLException {
         long userId = resultSet.getLong("id");
+        Long personId = nullableLong(resultSet, "person_id");
+        PersonProfile personProfile = findPersonProfile(personId).orElse(PersonProfile.empty());
         return new NexaCoreUserRecord(
                 userId,
+                personId,
                 resultSet.getString("username"),
-                resultSet.getString("email"),
-                resultSet.getBoolean("email_verified"),
+                firstNonBlank(personProfile.email(), resultSet.getString("email")),
+                personProfile.firstName(),
+                personProfile.lastName(),
+                personProfile.emailVerified() == null ? resultSet.getBoolean("email_verified") : personProfile.emailVerified(),
                 resultSet.getBoolean("enabled"),
                 resultSet.getString("password"),
                 findRoles(connection, userId)
@@ -154,6 +171,62 @@ public class NexaCoreUserRepository {
 
     private Connection getConnection() throws SQLException {
         return DriverManager.getConnection(jdbcUrl, username, password);
+    }
+
+    private Optional<PersonProfile> findPersonProfile(Long personId) {
+        if (personId == null || isBlank(kycJdbcUrl)) {
+            return Optional.empty();
+        }
+
+        String sql = """
+                SELECT p.email,
+                       p.first_name,
+                       p.last_name,
+                       p.email_verified
+                  FROM kyc_person p
+                 WHERE p.id = ?
+                """;
+        try (Connection connection = DriverManager.getConnection(kycJdbcUrl, kycUsername, kycPassword);
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, personId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(new PersonProfile(
+                        resultSet.getString("email"),
+                        resultSet.getString("first_name"),
+                        resultSet.getString("last_name"),
+                        resultSet.getBoolean("email_verified")
+                ));
+            }
+        } catch (SQLException e) {
+            throw new IllegalStateException("Failed to query NexaCore person profile", e);
+        }
+    }
+
+    private Long nullableLong(ResultSet resultSet, String columnName) throws SQLException {
+        long value = resultSet.getLong(columnName);
+        return resultSet.wasNull() ? null : value;
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (!isBlank(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private record PersonProfile(String email, String firstName, String lastName, Boolean emailVerified) {
+        private static PersonProfile empty() {
+            return new PersonProfile(null, null, null, null);
+        }
     }
 
     @FunctionalInterface

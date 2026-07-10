@@ -99,12 +99,14 @@ The SPI reads these NexaCore auth tables:
 auth_users
 auth_roles
 auth_user_roles
+kyc_person
 ```
 
 The current SQL expects these columns:
 
 ```text
 auth_users.id
+auth_users.person_id
 auth_users.username
 auth_users.email
 auth_users.email_verified
@@ -116,6 +118,12 @@ auth_roles.name
 
 auth_user_roles.user_id
 auth_user_roles.role_id
+
+kyc_person.id
+kyc_person.email
+kyc_person.first_name
+kyc_person.last_name
+kyc_person.email_verified
 ```
 
 The user query projects `email_verified` with a false fallback:
@@ -132,8 +140,11 @@ Password validation expects `auth_users.password` to contain a BCrypt hash compa
 
 ```text
 id
+personId
 username
 email
+firstName
+lastName
 emailVerified
 enabled
 passwordHash
@@ -146,10 +157,12 @@ Mapped Keycloak fields:
 
 | Keycloak field | NexaCore source |
 | --- | --- |
-| user id | `nexacore:` + `auth_users.id` |
+| user id | Keycloak federated storage id whose external id is `nexacore:` + `auth_users.id` |
 | username | `auth_users.username` |
-| email | `auth_users.email` |
-| email verified | `auth_users.email_verified` |
+| email | `kyc_person.email`, falling back to `auth_users.email` |
+| first name | `kyc_person.first_name` |
+| last name | `kyc_person.last_name` |
+| email verified | `kyc_person.email_verified`, falling back to `auth_users.email_verified` |
 | enabled | `auth_users.enabled` |
 
 Mapped Keycloak attributes:
@@ -157,9 +170,14 @@ Mapped Keycloak attributes:
 | Attribute | Value |
 | --- | --- |
 | `nexacore_user_id` | NexaCore user id as string |
+| `nexacore_person_id` | NexaCore person id as string when `auth_users.person_id` is set |
 | `nexacore_roles` | role names from `auth_roles.name` |
 
-The adapter rejects writes for username, email, email verification, and enabled status by throwing `UnsupportedOperationException`.
+The adapter rejects username and enabled-status writes because those values are owned by NexaCore. It allows Keycloak profile writes for email and email verification through Keycloak federated storage so required actions such as **Update Account Information** can complete without trying to update the NexaCore auth database directly.
+
+`auth_users` intentionally has no first-name or last-name columns. Those fields are owned by `kyc_db.kyc_person`. If Keycloak allows a temporary profile edit, the adapter can persist it in Keycloak federated storage, but NexaCore remains the authoritative source through the KYC business flow.
+
+The adapter exposes `email`, `firstName`, `lastName`, and `emailVerified` through both the `UserModel` getters and the Keycloak attribute API. This is required because Keycloak profile validation and protocol mappers may read standard profile fields through attributes instead of only through direct getters.
 
 ## Lookup Behavior
 
@@ -282,11 +300,12 @@ Recommended combined flow:
 
 For reliable backend mapping, include one of these values in the Keycloak token:
 
+- `nexacore_person_id`
 - `nexacore_user_id`
 - username
 - email
 
-The current SPI exposes `nexacore_user_id` as a user attribute. A Keycloak protocol mapper is needed if the backend should receive that attribute as a token claim.
+The current SPI exposes `nexacore_person_id` and `nexacore_user_id` as user attributes. Keycloak protocol mappers are needed if the backend should receive those attributes as token claims.
 
 ## Current Limitations
 
